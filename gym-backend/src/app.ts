@@ -1,0 +1,104 @@
+import express from           'express';
+import cors from              'cors';
+import dotenv from            'dotenv';
+import path from 'path';
+import logger from            './config/logger'
+import { programarBackupAutomatico } from './servicios/backup.servicio';
+import prisma from './modelos/prisma';
+import inicializarConfiguracion from './inicializarConfiguracion';
+
+import asistenciaRutas from   './rutas/asistencia.rutas';
+import authRutas from         './rutas/auth.rutas'
+import backupRutas from       './rutas/backup.rutas';
+import carritoRutas from      './rutas/carrito.rutas';
+import claseRutas from        './rutas/clase.rutas';
+import configuracionRutas from './rutas/configuracion.rutas';
+import entrenadorRutas from   './rutas/entrenador.rutas'
+import devRutas from          './rutas/dev.rutas'
+import ordenRutas from        './rutas/orden.rutas';
+import planRutas from         './rutas/plan.rutas';
+import productoRutas from     './rutas/producto.rutas'
+import reporteRutas from      './rutas/reporte.rutas';
+import reservaRutas from      './rutas/reserva.rutas';
+import sesionRutas from       './rutas/sesion.rutas';
+import suscripcionRutas from  './rutas/suscripcion.rutas';
+import usuarioRutas from      './rutas/usuario.rutas'
+
+import { manejarErrores, rutaNoEncontrada } from './middlewares/error.middleware';
+
+const envFile = process.env.NODE_ENV === 'production' 
+  ? '.env.production' 
+  : '.env.development';
+
+dotenv.config({ path: path.resolve(process.cwd(), envFile) });
+
+console.log(`Running in ${process.env.NODE_ENV} mode`);
+console.log(`DB Host: ${process.env.DB_HOST}`);
+const app = express();
+const port = process.env.PORT || 5001;
+
+// middlewares
+const allowedOrigins = [
+  "http://localhost:3000",
+  "https://gymprofit.vercel.app"
+];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // Permitir peticiones sin origen (como Postman o apps móviles)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) === -1) {
+      return callback(new Error('CORS no permitido'), false);
+    }
+    return callback(null, true);
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"]
+}));
+
+app.use(express.json());
+
+app.use((req, _, next) => {
+  console.log(`Request: ${req.method} ${req.path}`);
+  next();
+});
+
+app.use('/api/asistencias',    asistenciaRutas);
+app.use('/api/auth',           authRutas)
+app.use('/api/backups',        backupRutas);
+app.use('/api/carrito',        carritoRutas);
+app.use('/api/clases',         claseRutas);
+app.use('/api/configuracion',  configuracionRutas);
+app.use('/api/entrenadores',   entrenadorRutas);
+app.use('/api/dev',            devRutas);
+app.use('/api/ordenes',        ordenRutas);
+app.use('/api/planes',         planRutas);
+app.use('/api/productos',      productoRutas)
+app.use('/api/reportes',       reporteRutas);
+app.use('/api/reservas',       reservaRutas);
+app.use('/api/sesiones',       sesionRutas);
+app.use('/api/suscripciones',  suscripcionRutas);
+app.use('/api/usuarios',       usuarioRutas)
+
+app.get('/api/health', async (_, res) => {
+  // https://console.cron-job.org/statistics
+  // every 10 minutes
+  try {
+    const usuarios = await prisma.usuario.findMany();
+    console.log('Health check: Usuarios encontrados:', usuarios.length);
+    res.status(200).json({ usuarios, status: 'OK' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.use(rutaNoEncontrada);
+app.use(manejarErrores);
+
+// inicializarConfiguracion();
+
+app.listen(Number(port), '0.0.0.0', () => {    
+  programarBackupAutomatico();
+  logger.info(`Servidor listo. Puerto ::: ${port}`);
+});

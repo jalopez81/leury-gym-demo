@@ -1,0 +1,149 @@
+import { Request, Response } from 'express';
+import {
+  crearSesion,
+  obtenerSesiones,
+  obtenerSesionPorId,
+  actualizarSesion,
+  eliminarSesion,
+  obtenerSesionesPorClase
+} from '../servicios/sesion.servicio';
+import {
+  crearSesionSchema,
+  actualizarSesionSchema
+} from '../validadores/sesion.validador';
+import logger from '../config/logger';
+
+export const crear = async (req: Request, res: Response) => {
+  try {
+    const datosValidados = crearSesionSchema.parse(req.body);
+    const sesion = await crearSesion(datosValidados);
+
+    res.status(201).json(sesion);
+  } catch (error: any) {
+    logger.error('Error al crear sesión:', error);
+
+    if (error.name === 'ZodError') {
+      return res.status(400).json({
+        mensaje: 'Datos inválidos',
+        errores: error.errors
+      });
+    }
+
+    res.status(400).json({
+      mensaje: error.message || 'Error al crear sesión'
+    });
+  }
+};
+export const crearMultiple = async (req: Request, res: Response) => {
+  try {
+    const sesiones = req.body;
+
+    const resultados = await Promise.all(
+      sesiones.map(async (item: any) => {
+
+        // valida y crea cada sesión
+        const datosValidados = crearSesionSchema.parse({
+          fechaHora: item.fechaHora,
+          claseId: item.claseId
+        });
+        return await crearSesion(datosValidados);
+      })
+    );
+
+    res.status(201).json(resultados);
+  } catch (error: any) {
+    logger.error('Error al crear sesiones:', error);
+
+    if (error.name === 'ZodError') {
+      return res.status(400).json({
+        mensaje: 'Datos inválidos',
+        errores: error.errors
+      });
+    }
+
+    res.status(500).json({
+      mensaje: error.message || 'Error al crear sesiones'
+    });
+  }
+};
+
+
+export const listar = async (req: Request, res: Response) => {
+  try {
+    const sesiones = await obtenerSesiones();
+
+    res.status(200).json(sesiones);
+  } catch (error: any) {
+    logger.error('Error al listar sesiones:', error);
+    res.status(500).json({
+      mensaje: 'Error al obtener sesiones'
+    });
+  }
+};
+
+export const obtenerPorId = async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const sesion = await obtenerSesionPorId(id as string);
+
+    res.status(200).json(sesion);
+  } catch (error: any) {
+    logger.error('Error al obtener sesión:', error);
+    res.status(404).json({
+      mensaje: error.message || 'Sesión no encontrada'
+    });
+  }
+};
+
+export const actualizar = async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    const datosValidados = actualizarSesionSchema.parse(req.body);
+    const sesion = await actualizarSesion(id as string, datosValidados);
+
+    res.status(200).json(sesion);
+  } catch (error: any) {
+    logger.error('Error al actualizar sesión:', error);
+
+    if (error.name === 'ZodError') {
+      return res.status(400).json({
+        mensaje: 'Datos inválidos',
+        errores: error.errors
+      });
+    }
+
+    res.status(400).json({
+      mensaje: error.message || 'Error al actualizar sesión'
+    });
+  }
+};
+
+export const eliminar = async (req: Request, res: Response) => {
+  try {
+    const id = req.params.id as string;
+    await eliminarSesion(id as string);
+
+    res.status(200).json({
+      mensaje: 'Sesión eliminada exitosamente'
+    });
+  } catch (error: any) {
+    logger.error('Error al eliminar sesión:', error);
+    res.status(404).json({
+      mensaje: error.message || 'Sesión no encontrada'
+    });
+  }
+};
+
+export const obtenerPorClase = async (req: Request, res: Response) => {
+  try {
+    const { claseId } = req.params;
+    const sesiones = await obtenerSesionesPorClase(claseId as string);
+
+    res.status(200).json(sesiones);
+  } catch (error: any) {
+    logger.error('Error al obtener sesiones de la clase:', error);
+    res.status(500).json({
+      mensaje: 'Error al obtener sesiones'
+    });
+  }
+};

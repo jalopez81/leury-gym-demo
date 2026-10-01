@@ -1,0 +1,63 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: gym-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+      POSTGRES_DB: gym_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./gym-backend
+      dockerfile: Dockerfile
+    container_name: gym-backend
+    # Automatically apply Prisma schema to PostgreSQL before starting the node app
+    command: sh -c "npx prisma db push && npx prisma db seed && node dist/app.js"
+    ports:
+      - "5000:5000"
+      - "5555:5555"
+    environment:
+      PORT: 5000
+      NODE_ENV: production
+      DATABASE_URL: "postgresql://postgres:postgrespassword@postgres:5432/gym_db?schema=public"
+      JWT_SECRET: "mi-secreto-super-seguro-2024"
+      MJ_APIKEY_PUBLIC: "Z5df1b67ca7a8702a3b0df3f915a77466"
+      MJ_APIKEY_PRIVATE: "c2c73ee13a4faa317b3692cfc1f8cfad"
+      CLOUDINARY_CLOUD_NAME: "dhf0il3ul"
+      CLOUDINARY_API_KEY: "274494782267287"
+      CLOUDINARY_API_SECRET: "VwOwryTkrbJnVQL64pkTaXl3GY0"
+      CLOUDINARY_UPLOAD_PRESET: "leury-preset"
+      BACKUP_DIR: "./backups"
+      DB_CONTAINER: "gym-db"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./gym-frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: "http://localhost:5000/api"
+        NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME: "dhf0il3ul"
+        NEXT_PUBLIC_CLOUDINARY_API_KEY: "274494782267287"
+        NEXT_PUBLIC_CLOUDINARY_API_SECRET: "VwOwryTkrbJnVQL64pkTaXl3GY0"
+        NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET: "leury-preset"
+    container_name: gym-frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
