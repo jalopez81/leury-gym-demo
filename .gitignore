@@ -23,13 +23,6 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# Entornos
-.env
-.env.*
-!.env.example
-**/.env
-**/.env.*
-!**/.env.example
 
 # Datos locales / generados
 .backup/
